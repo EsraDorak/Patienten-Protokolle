@@ -9,7 +9,6 @@ Das System ermöglicht Pflegern und Pflegerinnen die Bearbeitung und Verwaltung 
 Bearbeitungsmodus nach Login: Nach dem erfolgreichen Login kann der Pfleger auf die vollständigen Protokolle zugreifen und hat die Möglichkeit, zu bearbeiten und zu löschen.
 
 Tech-Stack
-Frontend: React, TypeScript
-Backend: Node.js, Express
-Datenbank: MongoDB
-Sicherheit: Cookie-Parser für Authentifizierung und Sitzungsverwaltung
+Programmiersprache: Typescript,
+Frontend: React, Bootstrap
+Backend: Node.js, Express.js, Cookie-Parser, MongoDB
