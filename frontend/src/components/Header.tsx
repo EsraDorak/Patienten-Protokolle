@@ -1,46 +1,86 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { useContext, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import Container from 'react-bootstrap/Container';
 import Nav from 'react-bootstrap/Nav';
 import Navbar from 'react-bootstrap/Navbar';
 import Button from 'react-bootstrap/Button';
-import { LoginModal } from './LoginDialog';
-import LoginContext from './LoginContext';
+import {LoginContext, useLoginContext} from './LoginContext';
+import { LinkContainer } from 'react-router-bootstrap';
+import { deleteLogin, getLogin } from '../backend/api';
+import { LoginDialog } from './LoginDialog';
 
+//  type Role= {
+//   setAdminOrNot: (value: string) => void;
+//  };
+//123_abc_ABC
 export function Header() {
-    const [modalShow, setModalShow] = useState(false);
-    const loginContext = useContext(LoginContext);
-    const isLoggedIn = loginContext?.isLoggedIn;
-    const logout = loginContext?.logout;
-    const isAdmin = loginContext?.isAdmin;
+    const [click, setClick] = useState(false)
+    const { loginInfo, setLoginInfo } = useLoginContext();
+    const [admin, setAdmin] = useState(false)
+  
     
+    async function doLogout(){
+      await deleteLogin()
+      await getLogin()
+      setLoginInfo(undefined!)
+      setClick(false);
+    }
+    
+    useEffect(() => {
+      if (loginInfo && loginInfo.role === "a") {
+        setAdmin(true);
+      } else {
+        setAdmin(false);
+      }
+    }, [loginInfo]);
+  
     return (
-        <Navbar expand="lg" className="bg-body-tertiary" data-bs-theme="dark" style={{boxShadow: "0 2px 5px rgba(0, 0, 0, 0.3)"}}>
-            <Container>
-                <Navbar.Brand href="/">Trinkprotokolle</Navbar.Brand>
-                <Navbar.Toggle aria-controls="basic-navbar-nav" />
-                <Nav className="me-auto">
-                    {isAdmin && isLoggedIn ?
-                    <Nav.Link href="/admin">Admin</Nav.Link>
-                    : null
-                }
-                    {isLoggedIn ?
-                    <Nav.Link href="/prefs">Preferences</Nav.Link>
- 
-                    : null }
-                    <Nav.Link href="/">Übersicht</Nav.Link>
-                    <Nav.Link href="/protokoll/neu">Neues Protokoll</Nav.Link>
-                    {isLoggedIn ? 
-                    <Button href="/" style={{padding:"8px"}} variant="primary" onClick={logout}>
-                    Logout
-                    </Button> :
-                    <Button  style={{padding:"8px"}} variant="primary" onClick={() => setModalShow(true)}>
-                    Login
-                    </Button>
-}
-                    <LoginModal show={modalShow} onHide={() => setModalShow(false)} />
-                </Nav>
-            </Container>
-        </Navbar>
-    )
-}
+      <>
+      
+       <Navbar bg="dark" variant="dark" expand="lg">
+        <Container>
+          <LinkContainer to="/">
+            <Navbar.Brand>Trinkprotokolle</Navbar.Brand>
+          </LinkContainer>
+          <Navbar.Toggle aria-controls="basic-navbar-nav" />
+          <Navbar.Collapse id="basic-navbar-nav">
+            <Nav className="me-auto">
+              <LinkContainer to="/">
+                <Nav.Link>Home</Nav.Link>
+              </LinkContainer>
+               {loginInfo
+                ?  
+                //damit ich auf die Startseite komme
+                <LinkContainer to="/">
+                <Nav.Link onClick={doLogout}>Logout</Nav.Link>
+                </LinkContainer>
+                :
+                <Nav.Link onClick={() => setClick(true)}>Login</Nav.Link>
+              }
+              {click && <LoginDialog setClick={setClick}></LoginDialog>}
+              { (loginInfo && admin) && 
+              <LinkContainer to="/admin">
+                <Nav.Link>Admin</Nav.Link>
+              </LinkContainer>
+              }
+  
+              {
+              loginInfo&&
+              <LinkContainer to="/prefs">
+                <Nav.Link>Prefs</Nav.Link>
+              </LinkContainer>
+              }
+              { loginInfo&&
+                 <LinkContainer to="/protokoll/neu">
+                 <Nav.Link>Neues Protokoll</Nav.Link>
+               </LinkContainer>
+              }
+              
+            </Nav>
+          </Navbar.Collapse>
+        </Container>
+      </Navbar>
+      </>
+  
+    );
+  }

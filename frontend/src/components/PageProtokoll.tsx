@@ -1,261 +1,133 @@
 import React, { useState, useEffect } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
-import Eintrag from "./Eintrag";
+import { Link, useParams } from "react-router-dom";
 import { LoadingIndicator } from "./LoadingIndicator";
-import ProtokollDescription from "./ProtokollDescription";
-import {Container, Row, Col, Card, Button, Modal, Form, FormGroup, FormLabel, FormControl, Alert, FormCheck,} from "react-bootstrap";
+import { Container, Row, Col, Card, Button, Modal, CardGroup, Badge } from "react-bootstrap";
 import { EintragResource, ProtokollResource } from "../Resources";
-import { getAlleEintraege, getProtokoll, createProtokoll, updateProtokoll, deleteProtokoll } from "../backend/api";
+import { getAlleEintraege, getProtokoll, deleteProtokoll, deleteLogin, userId } from "../backend/api";
 import { useLoginContext } from "./LoginContext";
+import { PageError } from "./PageError";
+import { LinkContainer } from "react-router-bootstrap";
+import { Bearbeiten } from "./Bearbeiten";
 
-function PageProtokoll() {
-  const { protokollId } = useParams<{ protokollId?: string }>();
+export function PageProtokoll() {
+  const params = useParams();
+  let protokollId = params.protokollId;
+
   const [protokoll, setProtokoll] = useState<ProtokollResource | null>(null);
-  const [eintraege, setEintraege] = useState<EintragResource[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [newProtokollData, setNewProtokollData] = useState({
-    patient: "",
-    ersteller: "",
-    datum: "",
-    public: false,
-    closed: false,
-  });
-  const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
+  const [eintraege, setEintrag] = useState<EintragResource[]>([]);
+  const [error, setError] = useState<Error | null>(null);
+  const [show, setShow] = useState(false);
+  const [deletea, setDelete] = useState(false);
+  const { loginInfo } = useLoginContext();
 
-  const { isLoggedIn, logout } = useLoginContext();
-  const navigate = useNavigate();
+  async function protokollBearbeiten() {
+    setShow(true);
+  }
 
   useEffect(() => {
-    const fetchData = async () => {
+    async function loadProtokoll() {
       try {
-        if (protokollId) {
-          const protokollData = await getProtokoll(protokollId);
-          setProtokoll(protokollData);
-
-          const eintraegeData = await getAlleEintraege(protokollId);
-          setEintraege(eintraegeData);
-          setLoading(false);
-        }
+        let proto = await getProtokoll(protokollId!);
+        let eint = await getAlleEintraege(protokollId!);
+        setProtokoll(proto);
+        setEintrag(eint);
       } catch (error) {
-        console.error('Fehler beim Laden der Daten vom Server.', error);
-        setError('Fehler beim Laden der Daten vom Server.');
-        setLoading(false);
+        if (error instanceof Error) {
+          setError(error);
+          await deleteLogin();
+        }
       }
-    };
-
-    fetchData();
+    }
+    loadProtokoll();
   }, [protokollId]);
-  useEffect(() => {
-    if (!isEditing && protokollId) {
-      const reloadProtokoll = async () => {
-        try {
-          const protokollData = await getProtokoll(protokollId);
-          setProtokoll(protokollData);
-        } catch (error) {
-          console.error('Fehler beim Laden des Protokolls nach dem Bearbeiten.', error);
-        }
-      };
 
-      reloadProtokoll();
-    }
-  }, [isEditing, protokollId]);
-  const handleEditClick = () => {
-    if (isLoggedIn) {
-      setIsEditing(true);
-      setNewProtokollData((prevData) => ({
-        ...prevData,
-        patient: protokoll?.patient || "",
-        ersteller: protokoll?.ersteller || "",
-        datum: protokoll?.datum || "",
-        public: protokoll?.public || false,
-        closed: protokoll?.closed || false,
-      }));
-    } else {
-      console.log("Nur eingeloggte Benutzer können Protokolle bearbeiten.");
-    }
-  };
+  if (error) {
+    return <PageError />;
+  }
 
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    setValidationErrors({});
-  };
-
-  const handleDeleteClick = () => {
-    if (isLoggedIn) {
-      setShowDeleteModal(true);
-    } else {
-      console.log("Nur eingeloggte Benutzer können Protokolle löschen.");
-    }
-  };
-
-  const handleCancelDelete = () => {
-    setShowDeleteModal(false);
-  };
-
-  const handleConfirmDelete = async () => {
-    try {
-      await deleteProtokoll(protokollId!);
-      navigate('/');
-    } catch (error) {
-      console.error('Fehler beim Löschen des Protokolls:', error);
-    }
-  };
-
-  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = event.target;
-    setNewProtokollData((prevData) => ({ ...prevData, [name]: value }));
-  };
-
-  const handleCheckboxChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, checked } = event.target;
-    setNewProtokollData((prevData) => ({ ...prevData, [name]: checked }));
-  };
-
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const errors: { [key: string]: string } = {};
-
-    if (newProtokollData.patient.trim().length < 3) {
-      errors.patient = 'Der Name des Patienten muss mindestens 3 Zeichen lang sein.';
-    }
-
-    if (Object.keys(errors).length === 0) {
-      try {
-        if (protokollId === 'neu') {
-          const newProtokoll = await createProtokoll(newProtokollData);
-          navigate(`/protokoll/${newProtokoll.id}`);
-        } else {
-          await updateProtokoll({ ...newProtokollData, id: protokollId });
-          setIsEditing(false);
-          setValidationErrors({});
-        }
-      } catch (error) {
-        console.error('Fehler beim Erstellen oder Bearbeiten des Protokolls:', error);
-        setError('Fehler beim Erstellen oder Bearbeiten des Protokolls:');
-      }
-    } else {
-      setValidationErrors(errors);
-    }
-  };
-
-  if (loading) {
+  if (!protokoll) {
     return <LoadingIndicator />;
   }
 
-  if (error) {
-    return <div>{error}</div>;
-  }
-
   return (
-    <Container className="bg-light">
-      <Row className="mt-4">
-        <Col>
-          {protokoll && (
-            <Card bg="dark" text="light" style={{ marginBottom: '20px', borderRadius: '15px' }}>
-              <Card.Body>
-                {!isEditing ? (
-                  <ProtokollDescription protokoll={protokoll} setSelectedProtokoll={() => {}} />
-                ) : (
-                  <Form onSubmit={handleSubmit}>
-                    <FormGroup>
-                      <FormLabel>Patient</FormLabel>
-                      <FormControl
-                        type="text"
-                        name="patient"
-                        value={newProtokollData.patient}
-                        onChange={handleInputChange}
-                      />
-                      {validationErrors.patient && <Alert variant="danger">{validationErrors.patient}</Alert>}
-                    </FormGroup>
-                    <FormGroup>
-                      <FormLabel>Datum</FormLabel>
-                      <FormControl
-                        type="text"
-                        name="datum"
-                        value={newProtokollData.datum}
-                        onChange={handleInputChange}
-                      />
-                    </FormGroup>
-                    <FormGroup>
-                      <FormCheck
-                        type="checkbox"
-                        label="öffentlich"
-                        name="public"
-                        checked={newProtokollData.public}
-                        onChange={handleCheckboxChange}
-                      />
-                    </FormGroup>
-                    <FormGroup>
-                      <FormCheck
-                        type="checkbox"
-                        label="geschlossen"
-                        name="closed"
-                        checked={newProtokollData.closed}
-                        onChange={handleCheckboxChange}
-                      />
-                    </FormGroup>
-                    <Button type="submit" variant="success">
-                      Speichern
-                    </Button>
-                    <Button variant="secondary" onClick={handleCancelEdit}>
-                      Abbrechen
-                    </Button>
-                  </Form>
-                )}
-                {!isEditing && isLoggedIn && (
-                  <div>
-                    <Button variant="primary" onClick={handleEditClick}>
-                      Editieren
-                    </Button>
-                    <Button variant="danger" onClick={handleDeleteClick}>
-                      Löschen
-                    </Button>
-                  </div>
-                )}
-              </Card.Body>
-            </Card>
-          )}
-        </Col>
-      </Row>
-      <Row className="mt-4 bg-light">
-        <Col>
-          <h2>Einträge</h2>
-          <Link to={`/protokoll/${protokollId}/eintrag/neu`} className="btn btn-primary">
-            Neuer Eintrag
-          </Link>
+    <>
+      <h3>
+        Einträge für dieses Protokoll <Badge bg="secondary">{eintraege.length}</Badge>
+      </h3>
 
-          <ul className="list-group">
-            {eintraege.map((eintrag) => (
-              <li key={eintrag.id} className="list-group-item">
-                <Eintrag eintrag={eintrag} />
-                <Link to={`/eintrag/${eintrag.id}`} className="btn btn-primary">
-                  Zum Eintrag
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </Col>
-      </Row>
+      <CardGroup>
+        <Card>
+          <Card.Body>
+            <Card.Title>Protokoll von Patient: {protokoll.patient}</Card.Title>
+            <Card.Text>
+              <span style={{ fontWeight: "bold" }}>Datum:</span> {protokoll.datum}<br />
+              <span style={{ fontWeight: "bold" }}>Public:</span> <span style={{ color: protokoll.public ? "green" : "red" }}>
+                {protokoll.public ? "Ja" : "Nein"}
+              </span><br />
+              <span style={{ fontWeight: "bold" }}>Closed:</span> <span style={{ color: protokoll.closed ? "green" : "red" }}>
+                {protokoll.closed ? "Ja" : "Nein"}
+              </span><br />
+              <span style={{ fontWeight: "bold" }}>Ersteller Name:</span> {protokoll.erstellerName}<br />
+              <span style={{ fontWeight: "bold" }}>Gesamtmenge:</span> {protokoll.gesamtMenge}
+            </Card.Text>
+            {loginInfo && userId === protokoll.ersteller && (
+              <>
+                <Button variant="outline-danger" className="mr-2" onClick={() => setDelete(true)}>Löschen</Button>
+                <Button variant="outline-primary" onClick={protokollBearbeiten}>Editieren</Button>
+                <LinkContainer to={`/protokoll/${protokollId}/eintrag/neu`}>
+                  <Button variant="outline-primary">Neuer Eintrag</Button>
+                </LinkContainer>
+              </>
+            )}
+            {show && <Bearbeiten setShow={setShow} show />}
+            <Modal
+              show={deletea}
+              onHide={() => setDelete(false)}
+              backdrop="static"
+              keyboard={false}
+            >
+              <Modal.Header closeButton>
+                <Modal.Title>Protokoll löschen</Modal.Title>
+              </Modal.Header>
+              <Modal.Body>
+                <p>Möchten Sie dieses Protokoll wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.</p>
+                <div className="d-flex justify-content-end">
+                  <Button variant="secondary" onClick={() => setDelete(false)} className="me-5">Abbrechen</Button>
+                  <LinkContainer to="/">
+                    <Button variant="danger" className="me-5" onClick={async () => {
+                      await deleteProtokoll(protokollId!);
+                      setDelete(false);
+                    }}>Löschen</Button>
+                  </LinkContainer>
+                </div>
+              </Modal.Body>
+            </Modal>
+          </Card.Body>
+          <Card.Footer>
+            <small className="text-muted">UpdatetAt: {protokoll.updatedAt}</small>
+          </Card.Footer>
+        </Card>
+      </CardGroup>
 
-      <Modal show={showDeleteModal} onHide={handleCancelDelete}>
-        <Modal.Header closeButton>
-          <Modal.Title>Bestätigung</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>Möchten Sie dieses Protokoll wirklich löschen?</Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleConfirmDelete}>
-            OK
-          </Button>
-          <Button variant="danger" onClick={handleCancelDelete}>
-            Abbrechen
-          </Button>
-        </Modal.Footer>
-      </Modal>
-    </Container>
+      {eintraege.map((ein, i: number = 0) => (
+        <CardGroup key={ein.id}>
+          <Card>
+            <Card.Body>
+              <Card.Title>{i + 1}. Eintrag</Card.Title>
+              <Card.Text>
+                <span style={{ fontWeight: "bold" }}>Getränk:</span> {ein.getraenk}<br />
+                <span style={{ fontWeight: "bold" }}>Menge:</span> {ein.menge}<br />
+                <span style={{ fontWeight: "bold" }}>Kommentar:</span> {ein.kommentar}<br />
+                <span style={{ fontWeight: "bold" }}>Ersteller Name:</span> {ein.erstellerName}<br />
+              </Card.Text>
+              <Link to={`/eintrag/${ein.id}`}>Details</Link>
+            </Card.Body>
+            <Card.Footer>
+              <small className="text-muted">CreatedAt: {ein.createdAt}</small>
+            </Card.Footer>
+          </Card>
+        </CardGroup>
+      ))}
+    </>
   );
 }
-
-export default PageProtokoll;

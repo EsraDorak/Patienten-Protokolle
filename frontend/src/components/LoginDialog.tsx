@@ -1,105 +1,75 @@
-import React, { useEffect, useState } from 'react';
-import { Modal, Button, Form } from 'react-bootstrap';
+import { useContext, useEffect, useState } from 'react';
+import { Button, Modal, Form, InputGroup, FormControl } from 'react-bootstrap';
+import { deleteLogin, getLogin, postLogin } from '../backend/api';
+import { Console } from 'console';
 import { useLoginContext } from './LoginContext';
+//import { useLoginContext } from './LoginContext';
 
-interface LoginModalProps {
-  show: boolean;
-  onHide: () => void;
-}
+type HelpProp = {
+  setClick: (value: boolean) => void;
+};
 
-export function LoginModal({ show, onHide }: LoginModalProps) {
-  const { isLoggedIn, setIsLoggedIn, setPflegerId, setIsAdmin, logout } = useLoginContext();
-  const [name, setName] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState<null | string>(null);
 
-  useEffect(() => {
-    if (!show) {
-      setError(null);
-    }
-  }, [show]);
+export function LoginDialog({ setClick }: HelpProp) {
+  const [show, setShow] = useState(true);
+  const handleClose = () => setClick(false);
 
-  const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const name = formData.get('name') as string;
-    const password = formData.get('password') as string;
-    const response = await fetch(`${process.env.REACT_APP_API_SERVER_URL}/api/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ name, password }),
-      credentials: 'include' as RequestCredentials,
-    });
+  const [name, setName] = useState("")
+  const [password, setPassword] = useState("")
+  const { setLoginInfo } = useLoginContext();
+  const [errorMessage, setErrorMessage] = useState("");
 
-    if (response.ok) {
-      const result = await response.json();
-      setError(null);
-      setIsLoggedIn(true);
-      onHide();
-      const { id } = result;
 
-      setPflegerId(id);
-      setIsAdmin(result.role === 'a');
 
-      if (result.success) {
-        onHide();
-        setError(null);
-        setPflegerId(result.id);
-        setIsAdmin(result.role === 'a');
-      } else {
-        setError("Login fehlgeschlagen, bitte versuchen Sie es erneut.");
+
+
+  async function login() {
+    try {
+      let a = await postLogin(name, password)
+      //setAdminOrNot(a.role);
+      let userInfo = await getLogin()
+      if(userInfo){
+        console.log("getLogin  "+userInfo.userId)
       }
-    } else {
-      setError("Login fehlgeschlagen, bitte versuchen Sie es erneut.");
+      setLoginInfo(userInfo)
+
+      setShow(false);
     }
-  };
+    catch (err) {
+      setErrorMessage("Benutzername oder Passwort ist falsch.");
+      await deleteLogin()
+//dada
+    }
+
+  }
 
   return (
-    <Modal show={show} onHide={onHide}>
-      <Modal.Header closeButton>
-        <Modal.Title>{isLoggedIn ? 'Logout' : 'Login'}</Modal.Title>
-      </Modal.Header>
-      <Modal.Body>
-        {isLoggedIn ? (
-          <Button variant="primary" onClick={logout}>
-            Logout
-          </Button>
-        ) : (
-          <Form onSubmit={handleLogin}>
-            <Form.Group controlId="Name">
-              <Form.Label>Name</Form.Label>
-              <Form.Control
-                type="text"
-                value={name}
-                name = "name"
-                onChange={(e) => setName(e.target.value)}
-              />
+    <>
+      <Modal show={show} onHide={handleClose} backdrop="static" keyboard={false}>
+        <Modal.Header closeButton>
+          <Modal.Title>Login</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form>
+            <Form.Group>
+              <Form.Label htmlFor="username">Name</Form.Label>
+              <FormControl id="username" type="text" name="Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Benutzername" />
             </Form.Group>
-            <Form.Group controlId="Passwort">
-              <Form.Label>Passwort</Form.Label>
-              <Form.Control
-                type="password"
-                value={password}
-                name = "password"
-                onChange={(e) => setPassword(e.target.value)}
-              />
+            <Form.Group>
+              <Form.Label htmlFor="password">Passwort</Form.Label>
+              <FormControl id="password" type="Password" name="Passwort" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Geben Sie Ihr Passwort ein" />
             </Form.Group>
-            {error && <div className="error-message">{error}</div>}
-            <Modal.Footer>
-              <Button variant="secondary" onClick={onHide}>
-                Abbrechen
-              </Button>
-              <Button variant="primary" type="submit">
-                OK
-              </Button>
-            </Modal.Footer>
           </Form>
-        )}
-      </Modal.Body>
-    </Modal>
+          {errorMessage && <div style={{ color: 'red' }}>{errorMessage}</div>}
+
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleClose}>
+            Abbrechen
+          </Button>
+          <Button type="submit" variant="primary" onClick={login} >OK</Button>
+        </Modal.Footer>
+      </Modal>
+    </>
   );
 }
-
-export default LoginModal;

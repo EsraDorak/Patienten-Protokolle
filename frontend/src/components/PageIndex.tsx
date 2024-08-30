@@ -1,83 +1,72 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { LoadingIndicator } from "./LoadingIndicator";
-import ProtokollDescription from "./ProtokollDescription";
-import { Container, Card } from 'react-bootstrap';
+import { Card, Badge, Col, Row } from 'react-bootstrap';
 import { ProtokollResource } from "../Resources";
-import { getAllePrivateProtokolle, getAlleProtokolle } from "../backend/api";
-import { createProtokoll } from "../backend/api"; 
+import { deleteLogin, getAlleProtokolle } from "../backend/api";
 import { useLoginContext } from "./LoginContext";
+import { PageError } from "./PageError";
 
 export function PageIndex() {
-  const [protokolle, setProtokolle] = useState<ProtokollResource[]>([]);
-  const [loading, setLoading] = useState(true);
-  const loginContext = useLoginContext();
-  const isLoggedIn = loginContext?.isLoggedIn;
+  const [myProtokolle, setProtokolle] = useState<ProtokollResource[]>([]);
+  const [load, setLoad] = useState(true);
+  const { loginInfo } = useLoginContext();
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    const fetchProtokolle = async () => {
+    async function data() {
       try {
-        const data = await getAlleProtokolle();
-        setProtokolle(data);
-        setLoading(false);
-      } catch (error) {
-        console.error('Fehler beim Abrufen der Protokolldaten vom Server.', error);
-        setLoading(false);
+        let daten = await getAlleProtokolle();
+        setProtokolle(daten);
+        setLoad(false);
+      } catch (err) {
+        if (err instanceof Error) {
+          setError(err);
+          await deleteLogin();
+        }
       }
-    };
-
-    fetchProtokolle();
-  }, []);
-
-  useEffect(() => {
-    const fetchProtokolle = async () => {
-      if(isLoggedIn) {
-        const data = await getAllePrivateProtokolle();
-        setProtokolle(data);
-        setLoading(false);
-    };
-  }
-    fetchProtokolle();
-  }, [isLoggedIn]);
-
-  const handleNeuesProtokollClick = async () => {
-    try {
-      // Hier wird die createProtokoll-Funktion aufgerufen
-      const newProtokoll = await createProtokoll({
-        patient: "Default Patient", // Provide default patient name
-        ersteller: "",
-        datum: "", // Provide default datum
-        public: false,
-        closed: false,
-      })
-
-      // Nach dem Erstellen die Liste der Protokolle aktualisieren
-      setProtokolle([...protokolle, newProtokoll]);
-    } catch (error) {
-      console.error('Fehler beim Erstellen eines neuen Protokolls.', error);
     }
-  };
+    data();
+  }, [loginInfo]);
 
-  if (loading) {
+  if (error) {
+    return <PageError />;
+  }
+
+  if (load) {
     return <LoadingIndicator />;
   }
 
   return (
-    <Container>
-      <h1 className="mb-4" style={{ textAlign: 'left', marginBottom: '20px', fontWeight: 'bold' }}>Alle Protokolle</h1>
-      <Link to="/protokoll/neu" className="btn btn-primary mb-3" onClick={handleNeuesProtokollClick}>
-        Neues Protokoll
-      </Link>
-      {protokolle.map((protokoll) => (
-        <Card key={protokoll.id} bg="dark" text="light" style={{ marginBottom: '20px', borderRadius: '15px' }}>
-          <Card.Body>
-            <Link to={`/protokoll/${protokoll.id}`} className="text-light">
-              <h5 style={{ fontWeight: 'bold' }}>Protokoll Details</h5>
-            </Link>
-            <ProtokollDescription protokoll={protokoll} setSelectedProtokoll={() => {}} />
-          </Card.Body>
-        </Card>
-      ))}
-    </Container>
+    <>
+      <h1>Protokoll Anzahl <Badge bg="secondary">{myProtokolle.length}</Badge></h1>
+      <Row xs={1} md={2} lg={4} className="g-4">
+        {myProtokolle.map((protokoll) => (
+          <Col key={protokoll.id}>
+            <Card className="card-shadow card-hover">
+              <Card.Body>
+                <Card.Title>Protokoll von Patient: {protokoll.patient}</Card.Title>
+                <Card.Text>
+                  <span style={{ fontWeight: "bold" }}>Public:</span> <span style={{ color: protokoll.public ? "green" : "red" }}>
+                    {protokoll.public ? "Ja" : "Nein"}
+                  </span>
+                  <br />
+                  <span style={{ fontWeight: "bold" }}>Closed:</span> <span style={{ color: protokoll.closed ? "green" : "red" }}>
+                    {protokoll.closed ? "Ja" : "Nein"}
+                  </span><br />
+                  <span style={{ fontWeight: "bold" }}>Ersteller Name:</span> {protokoll.erstellerName}<br />
+                  <span style={{ fontWeight: "bold" }}>Gesamtmenge:</span> {protokoll.gesamtMenge}
+                </Card.Text>
+                <Link to={`/protokoll/${protokoll.id}`}>Mehr Anzeigen</Link>
+              </Card.Body>
+              <Card.Footer>
+                <small className="text-muted">Erstellt am: {protokoll.datum}</small><br />
+                <small className="text-muted">UpdatetAt: {protokoll.updatedAt}</small>
+              </Card.Footer>
+            </Card>
+          </Col>
+        ))}
+      </Row>
+    </>
   );
 }
