@@ -10,5 +10,5 @@ Bearbeitungsmodus nach Login: Nach dem erfolgreichen Login kann der Pfleger auf 
 
 Tech-Stack
 Programmiersprache: Typescript,
-Frontend: React, Bootstrap,
-Backend: Node.js, Express.js, Cookie-Parser, MongoDB
+Frontend: React, Bootstrap
+Backend: Node.js mit Express, Cookie-Parser, MongoDB mit mongoose
