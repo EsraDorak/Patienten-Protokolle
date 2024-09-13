@@ -1,4 +1,4 @@
-# Patientenprotokoll-Verwaltung
+# Trinkprotokoll-Website
 Dieses Projekt wurde im Rahmen des Moduls Web-Engineering II erstellt und dient der Verwaltung von Patientenprotokollen.
 
 Funktionsübersicht
